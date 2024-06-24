@@ -1,7 +1,7 @@
-MODULE_NAME := test_driver
+MODULE_NAME := way-part-control
 KERNEL_SRC := /lib/modules/$(shell uname -r)/build
 PWD := $(CURDIR)
-obj-m += test_driver.o
+obj-m += $(MODULE_NAME).o
 
 EXTRA_CFLAGS += -march=armv8-a
 driver: $(MODULE_NAME).ko
@@ -17,11 +17,11 @@ $(MODULE_NAME).o : $(MODULE_NAME).c
 driver : $(MODULE_NAME).ko utest
 
 clean:
-	rm ./utest ./test_driver.mod ./test_driver.ko ./Module.symvers ./modules.order ./test_driver.mod.o
+	rm ./utest ./$(MODULE_NAME).mod ./$(MODULE_NAME).ko ./Module.symvers ./modules.order ./$(MODULE_NAME).mod.o
 
 install:
-	sudo insmod ./test_driver.ko
+	sudo insmod ./$(MODULE_NAME).ko
 
 utest:
-	gcc -o utest utest.c -pthread
+	gcc -o wpuser-control wpuser-control.c -pthread
 	chmod +x utest
