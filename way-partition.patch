@@ -1,0 +1,118 @@
+diff --git a/bl31/aarch64/bl31_entrypoint.S b/bl31/aarch64/bl31_entrypoint.S
+index dc1cb6fdf..dfb14e924 100644
+--- a/bl31/aarch64/bl31_entrypoint.S
++++ b/bl31/aarch64/bl31_entrypoint.S
+@@ -225,6 +225,5 @@ func bl31_warm_entrypoint
+ 	mrs	x0, cntpct_el0
+ 	str	x0, [x19]
+ #endif
+-	bl delegate_partitioning_control
+ 	b	el3_exit
+ endfunc bl31_warm_entrypoint
+diff --git a/bl31/bl31_main.c b/bl31/bl31_main.c
+index 408ad9430..83be0f6f4 100644
+--- a/bl31/bl31_main.c
++++ b/bl31/bl31_main.c
+@@ -116,62 +116,6 @@ void bl31_setup(u_register_t arg0, u_register_t arg1, u_register_t arg2,
+ 	report_ctx_memory_usage();
+ }
+ 
+-
+-#define ACTLR_ELN_TSIDEN 	(1UL << 10)
+-#define ACTLR_ELN_SMEN 		(1UL << 11)
+-
+-/*
+-	This function sets the bits 10, 11 to delegate partitioning control from EL3
+-	to lower levels as shown in this guide: https://developer.arm.com/documentation/100453/0400/functional-description/l3-cache/l3-cache-partitioning?lang=en
+-*/
+-void delegate_partitioning_control(void)
+-{
+-	uint64_t actlr_el3;
+-	uint64_t actlr_el2;
+-
+-    // Inline assembly to read ACTLR_EL3 into actlr_el3 variable
+-    asm volatile ("mrs %0, actlr_el3" : "=r" (actlr_el3));
+-	/*
+-		Bit11: Registers CLUSTERACPSID, CLUSTERSTASHSID, CLUSTERPARTCR, CLUSTERBUSQOS, and CLUSTERTHREADSIDOVR are write-accessible from EL2 and EL1 Secure.
+-		Bit10: Register CLUSTERTHREADSID is write-accessible from EL2 and EL1 Secure.
+-	*/
+-    actlr_el3 |= (ACTLR_ELN_TSIDEN | ACTLR_ELN_SMEN);
+-    // Inline assembly to write the modified value back to ACTLR_EL3
+-    asm volatile ("msr actlr_el3, %0" :: "r" (actlr_el3));
+-
+-
+-	// Inline assembly to read ACTLR_EL3 into actlr_el3 variable
+-    asm volatile ("mrs %0, actlr_el2" : "=r" (actlr_el2));
+-	/*
+-		Bit11: Registers CLUSTERACPSID, CLUSTERSTASHSID, CLUSTERPARTCR, CLUSTERBUSQOS, 
+-			   and CLUSTERTHREADSIDOVR are write-accessible from EL1 Non-secure if they are write-accessible from EL2.
+-		Bit10:  sets ACTLR_EL2[10] to 0b1 to delegate control of the CLUSTERTHREADSID_EL1 register to EL1 --> 
+-				[NOTE]: this was only in the cache partitioning doces, not listed here:
+-						https://developer.arm.com/documentation/100798/0301/Register-descriptions/AArch64-system-registers/ACTLR-EL2--Auxiliary-Control-Register--EL2?lang=en
+-	*/
+-	actlr_el2 |= (ACTLR_ELN_TSIDEN | ACTLR_ELN_SMEN);
+-	asm volatile ("msr actlr_el2, %0" :: "r" (actlr_el2));
+-
+-	/*
+-		We should now be able to write into CLUSTERPARTC while in EL1, hence in our OS
+-	*/
+-
+-
+-	/*
+-		sets the CLUSTERACPSID_EL1 to 0x0 and the CLUSTERSTASHSID_EL1 to 0x0, to make ACP requests and stashes use scheme ID 0.
+-		See Step3: https://developer.arm.com/documentation/100453/0400/functional-description/l3-cache/l3-cache-partitioning?lang=en
+-	*/
+-	asm volatile ("msr clusteracpsid, %0" :: "r" (0));
+-	asm volatile ("msr clusterstashsid, %0" :: "r" (0));
+-
+-
+-
+-}
+-
+-
+-
+-
+-
+ /*******************************************************************************
+  * BL31 is responsible for setting up the runtime services for the primary cpu
+  * before passing control to the bootloader or an Operating System. This
+diff --git a/plat/rpi/rpi5/rpi5_setup.c b/plat/rpi/rpi5/rpi5_setup.c
+index 2fe52d8fa..de82300de 100644
+--- a/plat/rpi/rpi5/rpi5_setup.c
++++ b/plat/rpi/rpi5/rpi5_setup.c
+@@ -10,5 +10,3 @@ void plat_rpi_bl31_custom_setup(void)
+ {
+ 	/* Nothing to do here yet. */
+ }
+-
+-
+diff --git a/services/el3/ven_el3_svc.c b/services/el3/ven_el3_svc.c
+index 6ac37dacc..32a3dc273 100644
+--- a/services/el3/ven_el3_svc.c
++++ b/services/el3/ven_el3_svc.c
+@@ -95,6 +95,3 @@ DECLARE_RT_SVC(
+ 	ven_el3_svc_setup,
+ 	ven_el3_svc_handler
+ );
+-
+-
+-
+diff --git a/services/way_partition/way_partition.c b/services/way_partition/way_partition.c
+deleted file mode 100644
+index 74896bd58..000000000
+--- a/services/way_partition/way_partition.c
++++ /dev/null
+@@ -1,13 +0,0 @@
+-#include <common/debug.h>
+-#include <common/runtime_svc.h>
+-#include <lib/cpus/errata.h>
+-#include <lib/cpus/wa_cve_2017_5715.h>
+-#include <lib/cpus/wa_cve_2018_3639.h>
+-#include <lib/cpus/wa_cve_2022_23960.h>
+-#include <lib/smccc.h>
+-#include <services/arm_arch_svc.h>
+-#include <smccc_helpers.h>
+-#include <plat/common/platform.h>
+-
+-
+-
