@@ -17,11 +17,11 @@ $(MODULE_NAME).o : $(MODULE_NAME).c
 driver : $(MODULE_NAME).ko utest
 
 clean:
-	rm ./utest ./$(MODULE_NAME).mod ./$(MODULE_NAME).ko ./Module.symvers ./modules.order ./$(MODULE_NAME).mod.o
+	rm ./wpuser-control ./$(MODULE_NAME).mod ./$(MODULE_NAME).ko ./Module.symvers ./modules.order ./$(MODULE_NAME).mod.o
 
 install:
 	sudo insmod ./$(MODULE_NAME).ko
 
 utest:
 	gcc -o wpuser-control wpuser-control.c -pthread
-	chmod +x utest
+	chmod +x wpuser-control
