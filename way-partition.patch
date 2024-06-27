@@ -10,7 +10,7 @@ index dfb14e924..dc1cb6fdf 100644
  	b	el3_exit
  endfunc bl31_warm_entrypoint
 diff --git a/bl31/bl31_main.c b/bl31/bl31_main.c
-index 83be0f6f4..408ad9430 100644
+index 83be0f6f4..51cedb339 100644
 --- a/bl31/bl31_main.c
 +++ b/bl31/bl31_main.c
 @@ -116,6 +116,62 @@ void bl31_setup(u_register_t arg0, u_register_t arg1, u_register_t arg2,
@@ -62,8 +62,8 @@ index 83be0f6f4..408ad9430 100644
 +		sets the CLUSTERACPSID_EL1 to 0x0 and the CLUSTERSTASHSID_EL1 to 0x0, to make ACP requests and stashes use scheme ID 0.
 +		See Step3: https://developer.arm.com/documentation/100453/0400/functional-description/l3-cache/l3-cache-partitioning?lang=en
 +	*/
-+	asm volatile ("msr clusteracpsid, %0" :: "r" (0));
-+	asm volatile ("msr clusterstashsid, %0" :: "r" (0));
++	//asm volatile ("msr clusteracpsid, %0" :: "r" (0));
++	//asm volatile ("msr clusterstashsid, %0" :: "r" (0));
 +
 +
 +
@@ -76,6 +76,15 @@ index 83be0f6f4..408ad9430 100644
  /*******************************************************************************
   * BL31 is responsible for setting up the runtime services for the primary cpu
   * before passing control to the bootloader or an Operating System. This
+@@ -160,7 +216,7 @@ void bl31_main(void)
+ 	INFO("BL31: Initialising Exception Handling Framework\n");
+ 	ehf_init();
+ #endif
+-
++	delegate_partitioning_control();
+ 	/* Initialize the runtime services e.g. psci. */
+ 	INFO("BL31: Initializing runtime services\n");
+ 	runtime_svc_init();
 diff --git a/plat/rpi/rpi5/rpi5_setup.c b/plat/rpi/rpi5/rpi5_setup.c
 index de82300de..2fe52d8fa 100644
 --- a/plat/rpi/rpi5/rpi5_setup.c
