@@ -10,6 +10,7 @@ The Raspberry Pi 5 allows for architecturally partitioning the L3 cache ways int
 - Step 5: Add the following line to /boot/firmware/cmdline/config.txt --> "armstub=bl31.bin"
 - Step 6: Reboot the Raspberry Pi5 to ensure that everything went smoothly
 - Step 7: Use the Makefile to compile the driver and the usermode utility
+- Step 8: Install the driver --> "sudo insmod way-part-control.ko"
 - Step 8: Use the usermode utility to communicate with the driver to write the MSR registers that control cache partitioning
 
 
