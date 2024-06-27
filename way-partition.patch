@@ -62,8 +62,8 @@ index 83be0f6f4..408ad9430 100644
 +		sets the CLUSTERACPSID_EL1 to 0x0 and the CLUSTERSTASHSID_EL1 to 0x0, to make ACP requests and stashes use scheme ID 0.
 +		See Step3: https://developer.arm.com/documentation/100453/0400/functional-description/l3-cache/l3-cache-partitioning?lang=en
 +	*/
-+	asm volatile ("msr clusteracpsid, %0" :: "r" (0));
-+	asm volatile ("msr clusterstashsid, %0" :: "r" (0));
++	//asm volatile ("msr clusteracpsid, %0" :: "r" (0));
++	//asm volatile ("msr clusterstashsid, %0" :: "r" (0));
 +
 +
 +
