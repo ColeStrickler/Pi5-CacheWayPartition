@@ -244,7 +244,7 @@ static long IOCTL_Dispatch(struct file *file, unsigned int cmd, unsigned long ar
         case IOCTL_READ_CPUECTLR:
         {
             printk(KERN_INFO "IOCTL_READ_CPUECTLR called\n");
-            uint64_t value = IOCTL_READ_CPUECTLR();
+            uint64_t value = read_CPUECTLR_EL1();
             uint32_t high = ((value >> 32) & __UINT32_MAX__);
             uint32_t low = (value & __UINT32_MAX__);
             if (!copy_to_user(data.out_value_low, &low, sizeof(low)) || !!copy_to_user(data.out_value_high, &high, sizeof(high)))
