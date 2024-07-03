@@ -151,7 +151,7 @@ uint32_t read_CLUSTERTHREADSID_EL1(void)
     See: https://developer.arm.com/documentation/100798/0401/vrj1494872408498
     * This register can only be written to when the system is idle *
 */
-uint64 read_CPUECTLR_EL1(void)
+uint64_t read_CPUECTLR_EL1(void)
 {
     uint64_t value;
     asm volatile (
@@ -249,6 +249,7 @@ static long IOCTL_Dispatch(struct file *file, unsigned int cmd, unsigned long ar
             uint32_t low = (value & __UINT32_MAX__);
             if (!copy_to_user(data.out_value_low, &low, sizeof(low)) || !!copy_to_user(data.out_value_high, &high, sizeof(high)))
                 printk(KERN_INFO "copy_to_user() failed\n");
+            break;
         }
         default:
             return -EINVAL; // Invalid command
