@@ -105,13 +105,10 @@ int main(int argc, char* argv[]) {
     }
 
     if (read_value_low)
-        printf("Read value low: 0x%x\n", read_value_low);
+        printf("Read value: 0x%x\n", read_value_low);
     if (read_value_high)
         printf("Read Value high: 0x%x\n", read_value_high);
     
-    // Perform ioctl to increment count
-    
-
     // Close the device file
     close(fd);
 

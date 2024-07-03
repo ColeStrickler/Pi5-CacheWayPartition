@@ -1,0 +1,193 @@
+diff --git a/bl31/aarch64/bl31_entrypoint.S b/bl31/aarch64/bl31_entrypoint.S
+index dfb14e924..97f6cdda2 100644
+--- a/bl31/aarch64/bl31_entrypoint.S
++++ b/bl31/aarch64/bl31_entrypoint.S
+@@ -225,5 +225,7 @@ func bl31_warm_entrypoint
+ 	mrs	x0, cntpct_el0
+ 	str	x0, [x19]
+ #endif
++	bl delegate_partitioning_control
++	bl delegate_extended_control
+ 	b	el3_exit
+ endfunc bl31_warm_entrypoint
+diff --git a/bl31/bl31_main.c b/bl31/bl31_main.c
+index 83be0f6f4..652ff520d 100644
+--- a/bl31/bl31_main.c
++++ b/bl31/bl31_main.c
+@@ -116,6 +116,126 @@ void bl31_setup(u_register_t arg0, u_register_t arg1, u_register_t arg2,
+ 	report_ctx_memory_usage();
+ }
+ 
++#define ACTLR_ELN_ECTLREN	(1UL << 1)
++#define ACTLR_ELN_TSIDEN 	(1UL << 10)
++#define ACTLR_ELN_SMEN 		(1UL << 11)
++#define CPUECTLR_ELN_PFDIS	(1UL << 15)
++
++
++uint64_t read_CPUECTLR(void)
++{
++    uint64_t value;
++    asm volatile (
++        "mrs %0, S3_0_C15_C1_4\n" // got value from firmware, is not in the docs
++        : "=r" (value)
++    );
++    return value;
++}
++
++void write_CPUECTLR(uint64_t value)
++{   
++    asm volatile (
++        "msr S3_0_C15_C1_4, %0\n"
++        :
++        : "r" (value)
++        : "memory"
++    );
++}
++
++void CPUECTLR_DisableHardwarePrefetch(void)
++{
++	uint64_t cpuectlr_val = read_CPUECTLR();
++	cpuectlr_val |= (CPUECTLR_ELN_PFDIS);
++	write_CPUECTLR(cpuectlr_val);
++}
++
++
++
++/*
++	This function sets the second bit in ACTLR_EL3 & ACTLR_EL2 to delegate control of the extended control
++	MSR register to EL1. See: https://developer.arm.com/documentation/100798/0401/vrj1494872408498
++
++
++	We are not able to write this register from EL1 but this will allow us to read it and make sure our
++	values we set here are actually set
++*/
++void delegate_extended_control(void)
++{
++	uint64_t actlr_el3;
++	uint64_t actlr_el2;
++	// Inline assembly to read ACTLR_EL3 into actlr_el3 variable
++	asm volatile ("mrs %0, actlr_el3" : "=r" (actlr_el3));
++	// Inline assembly to read ACTLR_EL2 into actlr_el2 variable
++	asm volatile ("mrs %0, actlr_el2" : "=r" (actlr_el2));
++
++
++	actlr_el3 |= (ACTLR_ELN_ECTLREN);
++	actlr_el2 |= (ACTLR_ELN_ECTLREN);
++
++	// Inline assembly to write the modified value back to ACTLR_EL3
++    asm volatile ("msr actlr_el3, %0" :: "r" (actlr_el3));
++	// Inline assembly to write the modified value back to ACTLR_EL2
++    asm volatile ("msr actlr_el2, %0" :: "r" (actlr_el2));
++
++
++	/*
++		Perform any changes to CPUECTLR here. These changes must be done before MMU starts
++	*/
++	CPUECTLR_DisableHardwarePrefetch();
++}
++
++/*
++	This function sets the bits 10, 11 in ACTLR_EL3 & ACTLR_EL2 to delegate partitioning control from EL3
++	to lower levels as shown in this guide: https://developer.arm.com/documentation/100453/0400/functional-description/l3-cache/l3-cache-partitioning?lang=en
++*/
++void delegate_partitioning_control(void)
++{
++	uint64_t actlr_el3;
++	uint64_t actlr_el2;
++
++    // Inline assembly to read ACTLR_EL3 into actlr_el3 variable
++    asm volatile ("mrs %0, actlr_el3" : "=r" (actlr_el3));
++	/*
++		Bit11: Registers CLUSTERACPSID, CLUSTERSTASHSID, CLUSTERPARTCR, CLUSTERBUSQOS, and CLUSTERTHREADSIDOVR are write-accessible from EL2 and EL1 Secure.
++		Bit10: Register CLUSTERTHREADSID is write-accessible from EL2 and EL1 Secure.
++	*/
++    actlr_el3 |= (ACTLR_ELN_TSIDEN | ACTLR_ELN_SMEN);
++    // Inline assembly to write the modified value back to ACTLR_EL3
++    asm volatile ("msr actlr_el3, %0" :: "r" (actlr_el3));
++
++
++	// Inline assembly to read ACTLR_EL3 into actlr_el3 variable
++    asm volatile ("mrs %0, actlr_el2" : "=r" (actlr_el2));
++	/*
++		Bit11: Registers CLUSTERACPSID, CLUSTERSTASHSID, CLUSTERPARTCR, CLUSTERBUSQOS, 
++			   and CLUSTERTHREADSIDOVR are write-accessible from EL1 Non-secure if they are write-accessible from EL2.
++		Bit10:  sets ACTLR_EL2[10] to 0b1 to delegate control of the CLUSTERTHREADSID_EL1 register to EL1 --> 
++				[NOTE]: this was only in the cache partitioning doces, not listed here:
++						https://developer.arm.com/documentation/100798/0301/Register-descriptions/AArch64-system-registers/ACTLR-EL2--Auxiliary-Control-Register--EL2?lang=en
++	*/
++	actlr_el2 |= (ACTLR_ELN_TSIDEN | ACTLR_ELN_SMEN);
++	asm volatile ("msr actlr_el2, %0" :: "r" (actlr_el2));
++
++	/*
++		We should now be able to write into CLUSTERPARTC while in EL1, hence in our OS
++	*/
++
++
++	/*
++		sets the CLUSTERACPSID_EL1 to 0x0 and the CLUSTERSTASHSID_EL1 to 0x0, to make ACP requests and stashes use scheme ID 0.
++		See Step3: https://developer.arm.com/documentation/100453/0400/functional-description/l3-cache/l3-cache-partitioning?lang=en
++	*/
++	//asm volatile ("msr clusteracpsid, %0" :: "r" (0));
++	//asm volatile ("msr clusterstashsid, %0" :: "r" (0));
++
++
++
++}
++
++
++
++
++
+ /*******************************************************************************
+  * BL31 is responsible for setting up the runtime services for the primary cpu
+  * before passing control to the bootloader or an Operating System. This
+@@ -160,7 +280,8 @@ void bl31_main(void)
+ 	INFO("BL31: Initialising Exception Handling Framework\n");
+ 	ehf_init();
+ #endif
+-
++	delegate_partitioning_control();
++	delegate_extended_control();
+ 	/* Initialize the runtime services e.g. psci. */
+ 	INFO("BL31: Initializing runtime services\n");
+ 	runtime_svc_init();
+diff --git a/plat/rpi/rpi5/rpi5_setup.c b/plat/rpi/rpi5/rpi5_setup.c
+index de82300de..2fe52d8fa 100644
+--- a/plat/rpi/rpi5/rpi5_setup.c
++++ b/plat/rpi/rpi5/rpi5_setup.c
+@@ -10,3 +10,5 @@ void plat_rpi_bl31_custom_setup(void)
+ {
+ 	/* Nothing to do here yet. */
+ }
++
++
+diff --git a/services/el3/ven_el3_svc.c b/services/el3/ven_el3_svc.c
+index 32a3dc273..6ac37dacc 100644
+--- a/services/el3/ven_el3_svc.c
++++ b/services/el3/ven_el3_svc.c
+@@ -95,3 +95,6 @@ DECLARE_RT_SVC(
+ 	ven_el3_svc_setup,
+ 	ven_el3_svc_handler
+ );
++
++
++
+diff --git a/services/way_partition/way_partition.c b/services/way_partition/way_partition.c
+new file mode 100644
+index 000000000..74896bd58
+--- /dev/null
++++ b/services/way_partition/way_partition.c
+@@ -0,0 +1,13 @@
++#include <common/debug.h>
++#include <common/runtime_svc.h>
++#include <lib/cpus/errata.h>
++#include <lib/cpus/wa_cve_2017_5715.h>
++#include <lib/cpus/wa_cve_2018_3639.h>
++#include <lib/cpus/wa_cve_2022_23960.h>
++#include <lib/smccc.h>
++#include <services/arm_arch_svc.h>
++#include <smccc_helpers.h>
++#include <plat/common/platform.h>
++
++
++
