@@ -155,7 +155,7 @@ uint64_t read_CPUECTLR_EL1(void)
 {
     uint64_t value;
     asm volatile (
-        "mrs %0, cpuectlr_el1\n"
+        "mrs %0, cpuectlr\n"
         : "=r" (value)
     );
     return value;
