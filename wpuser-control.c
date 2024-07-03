@@ -15,10 +15,11 @@
 #define IOCTL_WRITE_CLUSTERTHREADSID _IO('k', 5)
 #define IOCTL_READ_CLUSTERPARTCR _IO('k', 6)
 #define IOCTL_READ_CLUSTERTHREADSID _IO('k', 10)
-
+#define IOCTL_READ_CPUECTLR _IO('k', 11)
 typedef struct ioctl_data {
     uint32_t in_value;
-    uint32_t* out_value;
+    uint32_t* out_value_low;
+    uint32_t* out_value_high;
 }ioctl_data;
 
 
@@ -43,12 +44,14 @@ void pin_cpu(long cpu)
 int main(int argc, char* argv[]) {
     int fd;
     int ret;
-    uint32_t read_value;
+    uint32_t read_value_low = 0; // lower 32 bits
+    uint32_t read_value_high = 0; // upper 32 bits
 
     if (argc != 4 )
     {
         printf("[USAGE]: waypart [reg#] [value in hexadecimal] [cpu #]\n");
         printf("Reg Numbers:\n1: CLUSTERPARTCR\n2: CLUSTERSTASHSID\n3: CLUSTERTHREADSIDOVR\n4: CLUSTERACPSID\n5: CLUSTERTHREADSID\n");
+        printf("6: Read CLUSTERPARTCR\n10:Read CLUSTERTHREADSID\n");
         exit(0);
     }
 
@@ -75,7 +78,8 @@ int main(int argc, char* argv[]) {
 
     ioctl_data data;
     data.in_value = value;
-    data.out_value = &read_value;
+    data.out_value_low = &read_value_low;
+    data.out_value_high = &read_value_high;
     switch(reg)
     {
         case 1: ret = ioctl(fd, IOCTL_WRITE_CLUSTERPARTCR, &data); break;
@@ -85,6 +89,7 @@ int main(int argc, char* argv[]) {
         case 5: ret = ioctl(fd, IOCTL_WRITE_CLUSTERTHREADSID, &data); break;
         case 6: ret = ioctl(fd, IOCTL_READ_CLUSTERPARTCR, &data); break;
         case 10: ret = ioctl(fd, IOCTL_READ_CLUSTERTHREADSID, &data); break;
+        case 11: ret = ioctl(fd, IOCTL_READ_CPUECTLR, &data); break;
         default:
         {
             printf("Invalid register number.\n");
@@ -99,8 +104,10 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-    if (reg > 5)
-        printf("Read value: 0x%x\n", read_value);
+    if (read_value_low)
+        printf("Read value low: 0x%x\n", read_value_low);
+    if (read_value_high)
+        printf("Read Value high: 0x%x\n", read_value_high);
     
     // Perform ioctl to increment count
     

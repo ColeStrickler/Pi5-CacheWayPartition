@@ -14,7 +14,8 @@
 
 typedef struct ioctl_data {
     uint32_t in_value;
-    uint32_t* out_value;
+    uint32_t* out_value_low;
+    uint32_t* out_value_high;
 }ioctl_data;
 
 
@@ -53,8 +54,6 @@ uint32_t read_CLUSTERPARTCR_EL1(void)
     );
     return value;
 }
-
-
 
 
 
@@ -147,6 +146,24 @@ uint32_t read_CLUSTERTHREADSID_EL1(void)
 
 
 
+/*
+    [CPUECTLR_EL1]
+    See: https://developer.arm.com/documentation/100798/0401/vrj1494872408498
+    * This register can only be written to when the system is idle *
+*/
+uint64 read_CPUECTLR_EL1(void)
+{
+    uint64_t value;
+    asm volatile (
+        "mrs %0, cpuectlr_el1\n"
+        : "=r" (value)
+    );
+    return value;
+}
+
+
+
+
 #define DEVICE_NAME "way-part"
 #define IOCTL_WRITE_CLUSTERPARTCR _IO('k', 1)
 #define IOCTL_WRITE_CLUSTERSTASHSID _IO('k', 2)
@@ -155,7 +172,7 @@ uint32_t read_CLUSTERTHREADSID_EL1(void)
 #define IOCTL_WRITE_CLUSTERTHREADSID _IO('k', 5)
 #define IOCTL_READ_CLUSTERPARTCR _IO('k', 6)
 #define IOCTL_READ_CLUSTERTHREADSID _IO('k', 10)
-
+#define IOCTL_READ_CPUECTLR _IO('k', 11)
 
 static int major_number;
 static struct cdev my_cdev;
@@ -212,7 +229,7 @@ static long IOCTL_Dispatch(struct file *file, unsigned int cmd, unsigned long ar
         {
             printk(KERN_INFO "IOCTL_READ_CLUSTERPARTCR called\n");
             uint32_t value = read_CLUSTERPARTCR_EL1();
-            if(!copy_to_user(data.out_value, &value, sizeof(value)))
+            if(!copy_to_user(data.out_value_low, &value, sizeof(value)))
                 printk(KERN_INFO "copy_to_user() failed\n");
             break;
         }
@@ -220,9 +237,18 @@ static long IOCTL_Dispatch(struct file *file, unsigned int cmd, unsigned long ar
         {
             printk(KERN_INFO "IOCTL_READ_CLUSTERTHREADSID called\n");
             uint32_t value = read_CLUSTERTHREADSID_EL1();
-            if (!copy_to_user(data.out_value, &value, sizeof(value)))
+            if (!copy_to_user(data.out_value_low, &value, sizeof(value)))
                 printk(KERN_INFO "copy_to_user() failed\n");
             break;
+        }
+        case IOCTL_READ_CPUECTLR:
+        {
+            printk(KERN_INFO "IOCTL_READ_CPUECTLR called\n");
+            uint64_t value = IOCTL_READ_CPUECTLR();
+            uint32_t high = ((value >> 32) & __UINT32_MAX__);
+            uint32_t low = (value & __UINT32_MAX__);
+            if (!copy_to_user(data.out_value_low, &low, sizeof(low)) || !!copy_to_user(data.out_value_high, &high, sizeof(high)))
+                printk(KERN_INFO "copy_to_user() failed\n");
         }
         default:
             return -EINVAL; // Invalid command
