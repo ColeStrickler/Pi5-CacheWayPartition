@@ -155,7 +155,7 @@ uint64_t read_CPUECTLR_EL1(void)
 {
     uint64_t value;
     asm volatile (
-        "mrs %0, S3_0_C15_C1_4\n"
+        "mrs %0, S3_0_C15_C1_4\n" // got value from firmware, is not in the docs
         : "=r" (value)
     );
     return value;
@@ -247,8 +247,10 @@ static long IOCTL_Dispatch(struct file *file, unsigned int cmd, unsigned long ar
             uint64_t value = read_CPUECTLR_EL1();
             uint32_t high = ((value >> 32) & __UINT32_MAX__);
             uint32_t low = (value & __UINT32_MAX__);
-            if (!copy_to_user(data.out_value_low, &low, sizeof(low)) || !!copy_to_user(data.out_value_high, &high, sizeof(high)))
+            if (!copy_to_user(data.out_value_low, &low, sizeof(low)))
                 printk(KERN_INFO "copy_to_user() failed\n");
+            if (!copy_to_user(data.out_value_high, &high, sizeof(high))
+                 printk(KERN_INFO "copy_to_user() failed\n");
             break;
         }
         default:
