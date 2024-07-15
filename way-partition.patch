@@ -11,20 +11,66 @@ index dfb14e924..97f6cdda2 100644
  	b	el3_exit
  endfunc bl31_warm_entrypoint
 diff --git a/bl31/bl31_main.c b/bl31/bl31_main.c
-index 83be0f6f4..012d15016 100644
+index 83be0f6f4..c752f0d76 100644
 --- a/bl31/bl31_main.c
 +++ b/bl31/bl31_main.c
-@@ -116,6 +116,85 @@ void bl31_setup(u_register_t arg0, u_register_t arg1, u_register_t arg2,
+@@ -116,6 +116,135 @@ void bl31_setup(u_register_t arg0, u_register_t arg1, u_register_t arg2,
  	report_ctx_memory_usage();
  }
  
 +#define ACTLR_ELN_ECTLREN	(1UL << 1)
 +#define ACTLR_ELN_TSIDEN 	(1UL << 10)
 +#define ACTLR_ELN_SMEN 		(1UL << 11)
++#define CPUECTLR_ELN_PFDIS	(1UL << 15)
++#define CPUECTLR_ELN_EXTLLC (1UL << 0)
++
++
++uint64_t read_CPUECTLR(void)
++{
++    uint64_t value;
++    asm volatile (
++        "mrs %0, S3_0_C15_C1_4\n" // got value from firmware, is not in the docs
++        : "=r" (value)
++    );
++    return value;
++}
++
++void write_CPUECTLR(uint64_t value)
++{   
++    asm volatile (
++        "msr S3_0_C15_C1_4, %0\n"
++        :
++        : "r" (value)
++        : "memory"
++    );
++}
++
++void CPUECTLR_DisableHardwarePrefetch(void)
++{
++	uint64_t cpuectlr_val = read_CPUECTLR();
++	cpuectlr_val |= (CPUECTLR_ELN_PFDIS);
++	write_CPUECTLR(cpuectlr_val);
++}
++
++/*
++	Because the Raspberry Pi 5 makes use of the DSU, we need to make sure that we tell CPUECTLR that we are using an
++	external LLC. https://developer.arm.com/documentation/100798/0401/AArch64-System-registers/CPUECTLR-EL1--CPU-Extended-Control-Register--EL1-?lang=en
++*/
++void CPUECTLR_SetExternalLLC(void)
++{
++	uint64_t cpuectlr_val = read_CPUECTLR();
++	cpuectlr_val |= (CPUECTLR_ELN_EXTLLC);
++	write_CPUECTLR(cpuectlr_val);
++}
++
 +
 +/*
 +	This function sets the second bit in ACTLR_EL3 & ACTLR_EL2 to delegate control of the extended control
 +	MSR register to EL1. See: https://developer.arm.com/documentation/100798/0401/vrj1494872408498
++
++
++	We are not able to write this register from EL1 but this will allow us to read it and make sure our
++	values we set here are actually set
 +*/
 +void delegate_extended_control(void)
 +{
@@ -43,6 +89,13 @@ index 83be0f6f4..012d15016 100644
 +    asm volatile ("msr actlr_el3, %0" :: "r" (actlr_el3));
 +	// Inline assembly to write the modified value back to ACTLR_EL2
 +    asm volatile ("msr actlr_el2, %0" :: "r" (actlr_el2));
++
++
++	/*
++		Perform any changes to CPUECTLR here. These changes must be done before MMU starts
++	*/
++	//CPUECTLR_DisableHardwarePrefetch();
++	CPUECTLR_SetExternalLLC();
 +}
 +
 +/*
@@ -88,9 +141,6 @@ index 83be0f6f4..012d15016 100644
 +	*/
 +	//asm volatile ("msr clusteracpsid, %0" :: "r" (0));
 +	//asm volatile ("msr clusterstashsid, %0" :: "r" (0));
-+
-+
-+
 +}
 +
 +
@@ -100,7 +150,7 @@ index 83be0f6f4..012d15016 100644
  /*******************************************************************************
   * BL31 is responsible for setting up the runtime services for the primary cpu
   * before passing control to the bootloader or an Operating System. This
-@@ -160,7 +239,8 @@ void bl31_main(void)
+@@ -160,7 +289,8 @@ void bl31_main(void)
  	INFO("BL31: Initialising Exception Handling Framework\n");
  	ehf_init();
  #endif
