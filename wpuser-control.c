@@ -16,7 +16,7 @@
 #define IOCTL_READ_CLUSTERPARTCR _IO('k', 6)
 #define IOCTL_READ_CLUSTERTHREADSID _IO('k', 10)
 #define IOCTL_READ_CPUECTLR _IO('k', 11)
-#define IOCTL_READ_CLUSTERPWRSTAT _IO('k', 21)
+#define IOCTL_READ_CLUSTERECTLR _IO('k', 21)
 
 
 typedef struct ioctl_data {
@@ -93,7 +93,7 @@ int main(int argc, char* argv[]) {
         case 6: ret = ioctl(fd, IOCTL_READ_CLUSTERPARTCR, &data); break;
         case 10: ret = ioctl(fd, IOCTL_READ_CLUSTERTHREADSID, &data); break;
         case 11: ret = ioctl(fd, IOCTL_READ_CPUECTLR, &data); break;
-        case 21: ret = ioctl(fd, IOCTL_READ_CLUSTERPWRSTAT, &data); break;
+        case 21: ret = ioctl(fd, IOCTL_READ_CLUSTERECTLR, &data); break;
         default:
         {
             printf("Invalid register number.\n");
