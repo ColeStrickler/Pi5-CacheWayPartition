@@ -270,7 +270,7 @@ static long IOCTL_Dispatch(struct file *file, unsigned int cmd, unsigned long ar
         }
         case IOCTL_READ_CLUSTERECTLR:
         {
-            uint32_t low = read_CLUSTERPWRSTAT_EL1();
+            uint32_t low = read_CLUSTERECTLR_EL1();
             if (!copy_to_user(data.out_value_low, &low, sizeof(low)))
                 printk(KERN_INFO "copy_to_user() failed\n");
             break;
