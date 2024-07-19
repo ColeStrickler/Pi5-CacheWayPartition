@@ -163,6 +163,20 @@ uint64_t read_CPUECTLR_EL1(void)
 
 
 
+uint32_t read_CLUSTERPWRSTAT_EL1(void)
+{
+
+    uint32_t value;
+    asm volatile (
+        "mrs %0,  S3_0_C15_C3_7\n"
+        : "=r" (value)
+    );
+    return value;
+}
+
+
+
+
 
 #define DEVICE_NAME "way-part"
 #define IOCTL_WRITE_CLUSTERPARTCR _IO('k', 1)
@@ -173,6 +187,7 @@ uint64_t read_CPUECTLR_EL1(void)
 #define IOCTL_READ_CLUSTERPARTCR _IO('k', 6)
 #define IOCTL_READ_CLUSTERTHREADSID _IO('k', 10)
 #define IOCTL_READ_CPUECTLR _IO('k', 11)
+#define IOCTL_READ_CLUSTERPWRSTAT _IO('k', 21)
 
 static int major_number;
 static struct cdev my_cdev;
@@ -251,6 +266,13 @@ static long IOCTL_Dispatch(struct file *file, unsigned int cmd, unsigned long ar
                 printk(KERN_INFO "copy_to_user() failed\n");
             if (!copy_to_user(data.out_value_high, &high, sizeof(high)))
                  printk(KERN_INFO "copy_to_user() failed\n");
+            break;
+        }
+        case IOCTL_READ_CLUSTERPWRSTAT:
+        {
+            uint32_t low = read_CLUSTERPWRSTAT_EL1();
+            if (!copy_to_user(data.out_value_low, &low, sizeof(low)))
+                printk(KERN_INFO "copy_to_user() failed\n");
             break;
         }
         default:
