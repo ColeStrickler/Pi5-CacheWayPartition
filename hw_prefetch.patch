@@ -11,10 +11,10 @@ index dfb14e924..97f6cdda2 100644
  	b	el3_exit
  endfunc bl31_warm_entrypoint
 diff --git a/bl31/bl31_main.c b/bl31/bl31_main.c
-index 83be0f6f4..bdeb81ce4 100644
+index 83be0f6f4..e1c9971c1 100644
 --- a/bl31/bl31_main.c
 +++ b/bl31/bl31_main.c
-@@ -116,6 +116,141 @@ void bl31_setup(u_register_t arg0, u_register_t arg1, u_register_t arg2,
+@@ -116,6 +116,142 @@ void bl31_setup(u_register_t arg0, u_register_t arg1, u_register_t arg2,
  	report_ctx_memory_usage();
  }
  
@@ -22,8 +22,8 @@ index 83be0f6f4..bdeb81ce4 100644
 +#define ACTLR_ELN_TSIDEN 				(1UL << 10)
 +#define ACTLR_ELN_SMEN 					(1UL << 11)
 +#define CPUECTLR_ELN_TLD_PRED_DIS		(1UL << 28)
-+#define CPUECTLR_ELN_WS_THR_L3_0		(1UL << 22)
-+#define CPUECTLR_ELN_WS_THR_L3_1		(1UL << 21)
++#define CPUECTLR_ELN_WS_THR_L3_0		(1UL << 23)
++#define CPUECTLR_ELN_WS_THR_L3_1 		(1UL << 22)
 +#define CPUECTLR_ELN_PFDIS				(1UL << 15)
 +#define CPUECTLR_ELN_PF_STI_DIS			(1UL << 8)
 +#define CPUECTLR_ELN_PF_STS_DIS			(1UL << 7)
@@ -54,7 +54,8 @@ index 83be0f6f4..bdeb81ce4 100644
 +void CPUECTLR_DisableHardwarePrefetch(void)
 +{
 +	uint64_t cpuectlr_val = read_CPUECTLR();
-+	cpuectlr_val |= (CPUECTLR_ELN_PFDIS | CPUECTLR_ELN_PF_STI_DIS | CPUECTLR_ELN_PF_STS_DIS | CPUECTLR_ELN_RPF_DIS | );
++	cpuectlr_val |= (CPUECTLR_ELN_PFDIS | CPUECTLR_ELN_PF_STI_DIS | CPUECTLR_ELN_PF_STS_DIS | CPUECTLR_ELN_RPF_DIS | CPUECTLR_ELN_WS_THR_L3_0 |\
++	CPUECTLR_ELN_WS_THR_L3_1 | CPUECTLR_ELN_TLD_PRED_DIS);
 +	write_CPUECTLR(cpuectlr_val);
 +}
 +
@@ -156,7 +157,7 @@ index 83be0f6f4..bdeb81ce4 100644
  /*******************************************************************************
   * BL31 is responsible for setting up the runtime services for the primary cpu
   * before passing control to the bootloader or an Operating System. This
-@@ -160,7 +295,8 @@ void bl31_main(void)
+@@ -160,7 +296,8 @@ void bl31_main(void)
  	INFO("BL31: Initialising Exception Handling Framework\n");
  	ehf_init();
  #endif
